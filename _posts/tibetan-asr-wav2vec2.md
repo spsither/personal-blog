@@ -1,8 +1,8 @@
 ---
-title: 'Preview Mode for Static Generation'
-excerpt: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Praesent elementum facilisis leo vel fringilla est ullamcorper eget. At imperdiet dui accumsan sit amet nulla facilities morbi tempus.'
+title: 'Fine-tuining Wav2Vec2 for tibetan ASR'
+excerpt: 'Experiences from fine-tuining facebook's Wav2Vec2 model for Tibetan ASR.'
 coverImage: '/assets/blog/tibetan-asr-wav2vec2/cover.png'
-date: '2020-03-16T05:35:07.322Z'
+date: '2023-08-07T16:40:0Z'
 author:
   name: spsither
   picture: '/assets/blog/authors/sp.jpeg'
@@ -10,10 +10,35 @@ ogImage:
   url: '/assets/blog/tibetan-asr-wav2vec2/cover.png'
 ---
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Praesent elementum facilisis leo vel fringilla est ullamcorper eget. At imperdiet dui accumsan sit amet nulla facilities morbi tempus. Praesent elementum facilisis leo vel fringilla. Congue mauris rhoncus aenean vel. Egestas sed tempus urna et pharetra pharetra massa massa ultricies.
+As part of the OpenPecha project, I spent the last few weeks fine-tuining facebook's open source model Wav2Vec2 for tibetan Automatic Speech Recognition (ASR). In this blog I share some of the problems we faced and how to avoid the same mistakes. 
 
-Venenatis cras sed felis eget velit. Consectetur libero id faucibus nisl tincidunt. Gravida in fermentum et sollicitudin ac orci phasellus egestas tellus. Volutpat consequat mauris nunc congue nisi vitae. Id aliquet risus feugiat in ante metus dictum at tempor. Sed blandit libero volutpat sed cras. Sed odio morbi quis commodo odio aenean sed adipiscing. Velit euismod in pellentesque massa placerat. Mi bibendum neque egestas congue quisque egestas diam in arcu. Nisi lacus sed viverra tellus in. Nibh cras pulvinar mattis nunc sed. Luctus accumsan tortor posuere ac ut consequat semper viverra. Fringilla ut morbi tincidunt augue interdum velit euismod.
+## Fine-Tune Wav2Vec2
 
-## Lorem Ipsum
+There are plenty of resources on how to Fine-Tune Wav2Vec2, such as [this](https://huggingface.co/blog/fine-tune-wav2vec2-english) blog from HuggingFace. Although the blog is conprehensive we faced some issues when addapting the notebook to train with our Tibetan training data.
 
-Tristique senectus et netus et malesuada fames ac turpis. Ridiculous mus mauris vitae ultricies leo integer malesuada nunc vel. In mollis nunc sed id semper. Egestas tellus rutrum tellus pellentesque. Phasellus vestibulum lorem sed risus ultricies tristique nulla. Quis blandit turpis cursus in hac habitasse platea dictumst quisque. Eros donec ac odio tempor orci dapibus ultrices. Aliquam sem et tortor consequat id porta nibh. Adipiscing elit duis tristique sollicitudin nibh sit amet commodo nulla. Diam vulputate ut pharetra sit amet. Ut tellus elementum sagittis vitae et leo. Arcu non odio euismod lacinia at quis risus sed vulputate.
+###  Using your own data
+The data we had was in the form of a tsv file with two cloumns, `path` and `sentence`. Where `path` is the filename of the audio segment and `sentence` is the transcription of what was said in the audio file. All the audio segments are short clips of about 1 to 12 seconds. 
+
+
+The HuggingFace blog uses `load_dataset` method from `datasets` library from HugginFace but if you want to use local data from an file, you can use `pandas` to read the tsv file and then use `Dataset.from_pandas` to make a dataset. Like so 
+```python
+from datasets import Dataset
+train_ds = Dataset.from_pandas(train_df)
+```
+
+### Jupyter Notebook ram limit 
+When using Jupyter notebook on a conputer with decent specs the notebook keeps restarting the kernel especially when we ran the `prepare_dataset` in a map.
+
+After I came accross [this article](https://towardsdatascience.com/leveraging-the-power-of-jupyter-notebooks-26b4b8d7c622), I realized that we have to configure the Jupyter notebook RAM limit. Suppose you have 32GB ram than you can use the follownig command to create config file and then set a new ram limit. The iopub_data_rate_limit is to set the limit of output your notebook can show. 
+```bash
+!jupyter notebook --generate-config
+!jupyter notebook --NotebookApp.max_buffer_size=32000000000
+!jupyter notebook --NotebookApp.iopub_data_rate_limit=10000000000
+```
+
+### Prepare dataset in serial 
+Another expensive mistake we made was to change the `prepare_dataset` function to operate not in batches but sequentially. Out notebook kernel kept restarting before the operation could finish on the training dataset so we thought it was a good idea to change the function into sequestial. 
+
+
+- CTC infinite eval loss
+- pushing the model online
